@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="生科院学习资料库——课程资料查询、整理与共享">
+<meta name="theme-color" content="#2e7d32">
+<link rel="manifest" href="manifest.webmanifest">
+<title>生科院学习资料库</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="hero">
+  <div class="hero-inner">
+    <div class="hero-top">
+      <h1>🌿 生科院学习资料库</h1>
+      <div class="hero-btns">
+        <button id="uploadBtn" class="theme-btn" type="button">➕ 上传资料</button>
+        <button id="adminBtn" class="theme-btn" type="button">⚙️ 管理</button>
+        <button id="theme" class="theme-btn" type="button">🌙 深色</button>
+      </div>
+    </div>
+    <p class="sub">查询 · 整理 · 共享<span id="stats" class="stats"></span></p>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="searchbar">
+    <input id="search" type="search" placeholder="搜索课程或资料，例如：生化、名词解释、2024 试卷、RNA…" autocomplete="off">
+  </div>
+
+  <nav id="cats" class="cats" aria-label="课程分类"></nav>
+
+  <section id="grid" class="grid" aria-live="polite"></section>
+
+  <section id="results" class="results hidden"></section>
+
+  <section id="detail" class="detail hidden"></section>
+
+  <p id="empty" class="empty hidden">没有找到匹配的内容，换个关键词试试～</p>
+</main>
+
+<footer class="foot">
+  <p>资料整理自同学们共享的学习资料 · 仅供学习交流使用</p>
+  <p class="foot-tip">如发现文件打不开或名字有误，请联系管理员更新</p>
+</footer>
+
+<!-- 上传资料弹窗 -->
+<div id="uploadModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>➕ 上传资料（自动分类）</h3>
+      <button class="icon-btn modal-x" type="button" data-close="uploadModal">×</button>
+    </div>
+    <div id="uploadBackendTip" class="tip hidden">⚠️ 后端尚未配置，暂时无法上传（等 Supabase 对接后即可用）。</div>
+    <form id="uploadForm">
+      <label class="fl">课程 <span class="auto-tag" id="courseTag"></span>
+        <select id="upCourse"></select>
+      </label>
+      <input id="upCourseCustom" class="hidden" placeholder="输入新课程名">
+      <label class="fl">类型 <span class="auto-tag" id="typeTag"></span>
+        <select id="upType">
+          <option>课件</option><option>复习题</option><option>试卷</option>
+          <option>答案</option><option>名词解释</option><option>复习大纲</option><option>其他</option>
+        </select>
+      </label>
+      <label class="fl">标题（可选，默认用文件名）
+        <input id="upTitle" type="text" placeholder="如：2024 期中试卷 A 卷">
+      </label>
+      <label class="fl">你的昵称（可选）
+        <input id="upUploader" type="text" placeholder="如：张三">
+      </label>
+      <label class="fl">选择文件（可多选）
+        <input id="upFiles" type="file" multiple>
+      </label>
+      <div id="upStatus" class="status"></div>
+      <div class="modal-actions">
+        <button type="submit" class="btn primary">开始上传</button>
+        <button type="button" class="btn" data-close="uploadModal">取消</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 管理弹窗 -->
+<div id="adminModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>⚙️ 管理员</h3>
+      <button class="icon-btn modal-x" type="button" data-close="adminModal">×</button>
+    </div>
+    <p class="tip">输入管理员密码后，可在同学上传的文件旁看到「删除」按钮。</p>
+    <input id="adminPwd" type="password" placeholder="管理员密码" class="admin-pwd">
+    <div class="modal-actions">
+      <button id="adminLogin" class="btn primary" type="button">进入管理</button>
+      <button type="button" class="btn" data-close="adminModal">取消</button>
+    </div>
+    <div id="adminStatus" class="status"></div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="supabase.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  }
+</script>
+</body>
+</html>
