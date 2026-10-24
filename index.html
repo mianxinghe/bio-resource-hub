@@ -26,8 +26,10 @@
 
 <main class="wrap">
   <div class="searchbar">
-    <input id="search" type="search" placeholder="搜索课程或资料，例如：生化、名词解释、2024 试卷、RNA…" autocomplete="off">
+    <input id="search" type="search" placeholder="搜索课程、资料或知识点内容，例如：生化、名词解释、糖酵解、PCR…" autocomplete="off">
   </div>
+
+  <div id="announce" class="announce hidden"></div>
 
   <nav id="cats" class="cats" aria-label="课程分类"></nav>
 
@@ -96,12 +98,22 @@
       <button type="button" class="btn" data-close="adminModal">取消</button>
     </div>
     <div id="adminStatus" class="status"></div>
+    <div id="announceBox" class="hidden">
+      <label class="fl">📢 发布公告（进入管理后可用）
+        <textarea id="announceText" rows="2" placeholder="例如：本周日细胞生物学期中考试；新增 2025 有机化学真题"></textarea>
+      </label>
+      <div class="modal-actions">
+        <button id="announcePost" class="btn primary" type="button">发布公告</button>
+      </div>
+      <div id="announceStatus" class="status"></div>
+    </div>
   </div>
 </div>
 
 <script src="config.js"></script>
 <script src="supabase.js"></script>
 <script src="data.js"></script>
+<script src="search.js"></script>
 <script src="app.js"></script>
 <script>
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
