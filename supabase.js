@@ -73,5 +73,43 @@ window.SUPA = (function () {
     return c.url + "/storage/v1/object/public/uploads/" + encodeURIComponent(path);
   }
 
-  return { enabled, listFiles, uploadFile, deleteFile, publicUrl, ext };
+  // ---- 求资料墙 ----
+  async function listRequests() {
+    var c = cfg(); if (!c) return [];
+    var r = await fetch(c.url + "/rest/v1/requests?select=*&order=created_at.desc", { headers: headers(c) });
+    if (!r.ok) throw new Error("读取求资料失败 " + r.status);
+    return r.json();
+  }
+  async function addRequest(text, uploader) {
+    var c = cfg(); if (!c) throw new Error("后端未配置");
+    var r = await fetch(c.url + "/rest/v1/requests", {
+      method: "POST",
+      headers: Object.assign({}, headers(c), { Prefer: "return=representation" }),
+      body: JSON.stringify({ text: text, uploader: uploader || "" }),
+    });
+    if (!r.ok) throw new Error("发布求资料失败 " + r.status);
+    return r.json();
+  }
+
+  // ---- 公告栏 ----
+  async function listAnnouncements() {
+    var c = cfg(); if (!c) return [];
+    var r = await fetch(c.url + "/rest/v1/announcements?select=*&order=created_at.desc&limit=3", { headers: headers(c) });
+    if (!r.ok) return [];
+    return r.json();
+  }
+  async function addAnnouncement(text, pwd) {
+    var c = cfg(); if (!c) throw new Error("后端未配置");
+    var r = await fetch(c.url + "/rest/v1/rpc/add_announcement", {
+      method: "POST",
+      headers: headers(c),
+      body: JSON.stringify({ p_text: text, p_pwd: pwd }),
+    });
+    if (!r.ok) throw new Error("发布公告失败 " + r.status);
+    var data = await r.json();
+    return data === true;
+  }
+
+  return { enabled, listFiles, uploadFile, deleteFile, publicUrl, ext,
+           listRequests, addRequest, listAnnouncements, addAnnouncement };
 })();
