@@ -95,6 +95,7 @@
     chipDefs.push({ id: "fav", label: "⭐ 收藏（" + favs.length + "）" });
     chipDefs.push({ id: "recent", label: "🕘 最近" });
     chipDefs.push({ id: "remote", label: "📥 同学们上传（" + remoteFiles.length + "）" });
+    chipDefs.push({ id: "req", label: "🙋 求资料（" + requests.length + "）" });
     DATA.categories.forEach(function (c) {
       chipDefs.push({ id: "cat:" + c.id, label: c.id + "（" + c.courses.length + "）" });
     });
@@ -112,6 +113,9 @@
         } else if (d.id === "remote") {
           curView = "remote";
           renderCats(); renderRemote();
+        } else if (d.id === "req") {
+          curView = "req";
+          renderCats(); renderRequests();
         } else if (d.id === "grid") {
           curView = "grid"; curCat = ALL;
           renderCats(); renderGrid();
@@ -225,6 +229,12 @@
       sub.appendChild(up);
     }
     main.appendChild(t); main.appendChild(sub);
+    if (entry.f.snippet) {
+      var snDiv = document.createElement("div");
+      snDiv.className = "fsnippet";
+      snDiv.innerHTML = entry.f.snippet;
+      main.appendChild(snDiv);
+    }
 
     var acts = document.createElement("div");
     acts.className = "file-actions";
@@ -358,6 +368,7 @@
       if (curView === "fav") { renderList("fav"); return; }
       if (curView === "recent") { renderList("recent"); return; }
       if (curView === "remote") { renderRemote(); return; }
+      if (curView === "req") { renderRequests(); return; }
       renderGrid();
       return;
     }
@@ -407,6 +418,38 @@
       h3.textContent = "📥 同学们上传的匹配（" + matchedRemote.length + "）";
       results.appendChild(h3);
       matchedRemote.slice(0, 40).forEach(function (e) {
+        results.appendChild(fileRow(e, true));
+      });
+    }
+    // 全文内容匹配（SEARCH_INDEX）
+    var searchIndex = window.SEARCH_INDEX || [];
+    var seen = {};
+    matchedFiles.forEach(function (e) { seen[e.f.file] = true; });
+    var matchedContent = [];
+    searchIndex.forEach(function (e) {
+      if (seen[e.file] || matchedContent.length >= 40) return;
+      var i = e.text.toLowerCase().indexOf(q);
+      if (i >= 0) {
+        var s = Math.max(0, i - 25), en = Math.min(e.text.length, i + q.length + 40);
+        var esc = function (x) { return x.replace(/[<>&]/g, function (m) { return { "<": "&lt;", ">": "&gt;", "&": "&amp;" }[m]; }); };
+        var snippet = (s > 0 ? "……" : "") + esc(e.text.slice(s, i)) +
+          "<mark>" + esc(e.text.slice(i, i + q.length)) + "</mark>" +
+          esc(e.text.slice(i + q.length, en)) + (en < e.text.length ? "……" : "");
+        matchedContent.push({
+          course: e.course,
+          f: {
+            title: e.title, type: e.type, ext: e.ext, size: e.size,
+            file: e.file, preview: e.preview, preview_pdf: e.preview_pdf,
+            snippet: snippet,
+          },
+        });
+      }
+    });
+    if (matchedContent.length) {
+      var h4 = document.createElement("h2");
+      h4.textContent = "🔍 内容匹配（正文里含关键词的资料，共 " + matchedContent.length + " 份）";
+      results.appendChild(h4);
+      matchedContent.forEach(function (e) {
         results.appendChild(fileRow(e, true));
       });
     }
@@ -635,6 +678,11 @@
   };
 
   /* ---- admin ---- */
+  $("adminBtn").onclick = function () {
+    openModal("adminModal");
+    if (adminMode) $("announceBox").classList.remove("hidden");
+    else $("announceBox").classList.add("hidden");
+  };
   $("adminLogin").onclick = function () {
     var p = $("adminPwd").value.trim();
     if (!p) {
@@ -643,7 +691,8 @@
     }
     sessionStorage.setItem("biohub_admin", p);
     adminMode = true;
-    $("adminStatus").textContent = "✅ 已进入管理（本标签页会话内有效）。同学上传的文件旁会有 🗑️ 删除按钮。";
+    $("announceBox").classList.remove("hidden");
+    $("adminStatus").textContent = "✅ 已进入管理（本标签页会话内有效）。同学上传的文件旁会有 🗑️ 删除按钮，下方可发布公告。";
     setTimeout(function () {
       closeModal("adminModal");
       renderCats();
@@ -651,6 +700,24 @@
       else if (curQuery) doSearch();
       else renderGrid();
     }, 700);
+  };
+  $("announcePost").onclick = function () {
+    var text = $("announceText").value.trim();
+    var pwd = sessionStorage.getItem("biohub_admin") || "";
+    if (!text) { $("announceStatus").textContent = "先写公告内容。"; return; }
+    SUPA.addAnnouncement(text, pwd).then(function (ok) {
+      if (ok) {
+        $("announceText").value = "";
+        $("announceStatus").textContent = "✅ 公告已发布！";
+        loadAnnouncements();
+      } else {
+        $("announceStatus").textContent = "密码错误，请重新进入管理。";
+        sessionStorage.removeItem("biohub_admin");
+        adminMode = false;
+      }
+    }).catch(function (e) {
+      $("announceStatus").textContent = "发布失败：" + e.message;
+    });
   };
   function doDelete(f, btn) {
     var pwd = sessionStorage.getItem("biohub_admin") || "";
@@ -672,7 +739,108 @@
     });
   }
 
+  /* ---------- 求资料墙 ---------- */
+  var requests = [];
+
+  function loadRequests() {
+    if (!SUPA.enabled()) { renderCats(); return; }
+    SUPA.listRequests().then(function (rows) {
+      requests = rows || [];
+      renderCats();
+      if (curView === "req") renderRequests();
+    }).catch(function (e) { console.warn("loadRequests failed:", e); });
+  }
+
+  function renderRequests() {
+    grid.classList.add("hidden");
+    empty.classList.add("hidden");
+    detail.classList.add("hidden");
+    detail.innerHTML = "";
+    results.classList.remove("hidden");
+    results.innerHTML = "";
+    var h = document.createElement("h2");
+    h.textContent = "🙋 求资料墙（" + requests.length + " 条需求，最新的在前）";
+    results.appendChild(h);
+    if (!SUPA.enabled()) {
+      var tip = document.createElement("p");
+      tip.className = "empty"; tip.style.padding = "20px 0";
+      tip.textContent = "后端尚未配置，求资料功能暂不可用。";
+      results.appendChild(tip);
+      return;
+    }
+    var form = document.createElement("div");
+    form.className = "req-form";
+    var ta = document.createElement("textarea");
+    ta.id = "reqText";
+    ta.placeholder = "求：细胞生物学 2024 期末真题（最好带答案）";
+    ta.rows = 2;
+    var nick = document.createElement("input");
+    nick.id = "reqNick";
+    nick.type = "text";
+    nick.placeholder = "你的昵称（可选）";
+    var btn = document.createElement("button");
+    btn.className = "btn primary";
+    btn.textContent = "发布求资料";
+    var st = document.createElement("div");
+    st.className = "status";
+    btn.onclick = function () {
+      var text = ta.value.trim();
+      if (!text) { st.textContent = "先写清楚求什么资料～"; st.className = "status err"; return; }
+      btn.disabled = true;
+      SUPA.addRequest(text, nick.value.trim()).then(function () {
+        ta.value = ""; nick.value = ""; btn.disabled = false;
+        st.textContent = "✅ 已发布，等同学来上传～";
+        st.className = "status";
+        loadRequests();
+      }).catch(function (e) {
+        btn.disabled = false;
+        st.className = "status err";
+        st.textContent = "发布失败：" + e.message;
+      });
+    };
+    form.appendChild(ta); form.appendChild(nick); form.appendChild(btn); form.appendChild(st);
+    results.appendChild(form);
+    if (!requests.length) {
+      var tip2 = document.createElement("p");
+      tip2.className = "empty"; tip2.style.padding = "20px 0";
+      tip2.textContent = "还没有求资料需求，做第一个发需求的人吧～";
+      results.appendChild(tip2);
+      return;
+    }
+    requests.forEach(function (r) {
+      var row = document.createElement("div");
+      row.className = "req-row";
+      var t = document.createElement("div");
+      t.className = "req-text";
+      t.textContent = r.text;
+      var m = document.createElement("div");
+      m.className = "req-meta";
+      m.textContent = "👤 " + (r.uploader || "匿名") + " · " + (r.created_at || "").slice(0, 10);
+      row.appendChild(t); row.appendChild(m);
+      results.appendChild(row);
+    });
+  }
+
+  /* ---------- 公告栏 ---------- */
+  function loadAnnouncements() {
+    if (!SUPA.enabled()) return;
+    SUPA.listAnnouncements().then(function (rows) {
+      var box = $("announce");
+      box.innerHTML = "";
+      if (!rows || !rows.length) { box.classList.add("hidden"); return; }
+      box.classList.remove("hidden");
+      rows.forEach(function (a) {
+        var d = document.createElement("div");
+        d.className = "announce-item";
+        d.textContent = "📢 " + a.text + (a.created_at ? "（" + a.created_at.slice(0, 10) + "）" : "");
+        box.appendChild(d);
+      });
+    }).catch(function () {});
+  }
+
   renderCats();
   route();
   loadRemote();
+  loadRequests();
+  loadAnnouncements();
 })();
